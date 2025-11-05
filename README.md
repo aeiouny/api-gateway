@@ -9,6 +9,7 @@ Build a lightweight API gateway with request routing, authentication, rate limit
 - **Orchestration:** Kubernetes (Minikube)
 - **APIs:** Stripe, SendGrid
 - **Performance Testing:** K6
+- **Gateway Libraries:** pythin-jose(authentication), slowapi(rate limiting), opentelemetry-instrumentation-fastapi(metrics)
 
 
 # Commands
