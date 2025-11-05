@@ -5,11 +5,8 @@ Build a lightweight API gateway with request routing, authentication, rate limit
 
 # Tech Stack
 - **Backend:** Python (FastAPI)
-- **Gateway:** Traefik (Rate limiting, Json Web Token)
-- **Mesh:** Linkerd(mTLS) 
 - **Containerization:** Docker
-- **Orchestration:** Kubernetes (local via Minikube or Kind)
-- **Observability:** OpenTelemetry for tracing
+- **Orchestration:** Kubernetes (Minikube)
 - **APIs:** Stripe, SendGrid
 - **Performance Testing:** K6
 
