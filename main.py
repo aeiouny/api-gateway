@@ -23,7 +23,7 @@ token_scheme = HTTPBearer()
 @app.get("/")
 @limiter.limit("5/minute")  
 async def get_root(request: Request):
-    return {"message": "Jason Tews is super obese!"}
+    return {"message": "Main Page!"}
 
 
 @app.get("/health")
