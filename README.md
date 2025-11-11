@@ -1,21 +1,24 @@
-## Cloud-Native API Gateway & Service Mesh
+# Cloud-Native API Gateway & Service Mesh
 
-# Project Goal
-Build a lightweight API gateway with request routing, authentication, rate limiting, and metrics collection.
+## Project Goal
+Build a lightweight **API Gateway** that supports:
+- Request routing  
+- Authentication  
+- Rate limiting 
+- Metrics collection
 
-# Tech Stack
+---
+
+## 🧰 Tech Stack
 - **Backend:** Python (FastAPI)
-- **Containerization:** Docker
-- **Orchestration:** Kubernetes (Minikube)
-- **APIs:** Stripe, SendGrid
-- **Performance Testing:** K6
-- **Gateway Libraries:** python-jose(authentication), slowapi(rate limiting), opentelemetry-instrumentation-fastapi(metrics)
+- **Rate Limiting:** FastAPI-Limiter + Redis
+- **Runtime:** Uvicorn
 
+---
 
-# Commands
-Creating python virtual environment: python -m venv <name>
+## ⚙️ Setup Instructions
 
-Install FastAPI: pip install fastapi "uvicorn[standard]"
-Install SlowAPI: pip install slowapi
-
-Run locally: uvicorn main:app --reload
+### 1️⃣ Clone the repository
+```bash
+git clone https://github.com/<your-username>/api-gateway.git
+cd api-gateway
