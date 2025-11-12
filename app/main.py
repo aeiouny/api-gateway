@@ -41,9 +41,19 @@ async def get_health(request: Request):
     return {"status": "ok"}
 
 @app.get("/metrics")
-async def metrics_endpoint():
-    metrics_data = get_metrics()
-    return Response(content=metrics_data, media_type="text/plain; version=0.0.4")
+async def metrics_endpoint(request: Request):
+    # Check if user wants formatted output (browser or ?format=pretty)
+    accept = request.headers.get("accept", "")
+    format_param = request.query_params.get("format", "")
+    
+    if "text/html" in accept or format_param == "pretty":
+        from app.telemetry import get_formatted_metrics
+        metrics_data = get_formatted_metrics()
+        return Response(content=metrics_data, media_type="text/plain")
+    else:
+        # Default: Prometheus format (for monitoring tools)
+        metrics_data = get_metrics()
+        return Response(content=metrics_data, media_type="text/plain; version=0.0.4")
 
 @app.get("/api/v1/me")
 async def get_user(user: dict = Depends(validate_token)):
