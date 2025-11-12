@@ -5,7 +5,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
-
+from .telemetry import setup_telemetry
 
 limiter = Limiter(key_func=get_remote_address)
 
@@ -14,6 +14,10 @@ app = FastAPI(
     title="API Gateway",
     description="API gateway."
 )
+
+
+setup_telemetry(app)
+
 
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
