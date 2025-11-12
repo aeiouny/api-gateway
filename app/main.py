@@ -5,9 +5,10 @@ from fastapi.responses import JSONResponse
 from fastapi_limiter import FastAPILimiter
 from fastapi_limiter.depends import RateLimiter
 from dotenv import load_dotenv
-from auth import validate_token
-from telemetry import setup_telemetry, get_metrics
+from app.auth import validate_token
+from app.telemetry import setup_telemetry, get_metrics
 from fastapi.responses import Response
+from app.router import forward_request, get_backend_url, ROUTES
 
 load_dotenv()
 app = FastAPI(
@@ -72,3 +73,32 @@ async def get_secure_data(
         "email": user.get("email"),
         "authenticated": True
     }
+
+# Catch-all route for proxying requests to backend services
+@app.api_route("/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"])
+async def proxy_request(request: Request, path: str):
+    """
+    Proxies requests to backend services based on route configuration.
+    This catches all requests that don't match the specific endpoints above.
+    """
+    # Build the full path
+    full_path = f"/{path}"
+    
+    # Check if this path should be routed to a backend
+    backend_url = get_backend_url(full_path)
+    
+    if backend_url is None:
+        return JSONResponse(
+            status_code=404,
+            content={"error": "Route not found", "path": full_path}
+        )
+    
+    # Find the route prefix that matched
+    route_prefix = None
+    for route in ROUTES.keys():
+        if full_path.startswith(route):
+            route_prefix = route
+            break
+    
+    # Forward the request to the backend service
+    return await forward_request(request, backend_url, route_prefix)
