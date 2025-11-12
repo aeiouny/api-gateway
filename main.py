@@ -1,32 +1,46 @@
+import os
+import redis.asyncio as redis
 from fastapi import FastAPI, Request, Depends
 from fastapi.responses import JSONResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-
-# from slowapi import Limiter, _rate_limit_exceeded_handler
-# from slowapi.util import get_remote_address
-# from slowapi.errors import RateLimitExceeded
-# from telemetry import setup_telemetry
-
-# limiter = Limiter(key_func=get_remote_address)
-
+from fastapi_limiter import FastAPILimiter
+from fastapi_limiter.depends import RateLimiter
 
 app = FastAPI(
     title="API Gateway",
-    description="API gateway."
+    description="API gateway with rate limiting."
 )
 
-
-# setup_telemetry(app)
-
-
-# app.state.limiter = limiter
-# app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
-
+REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
 token_scheme = HTTPBearer()
 
+# Connects to Redis when server starts.
+@app.on_event("startup")
+async def startup():
+    try:
+        redis_connection = await redis.from_url(
+            REDIS_URL,
+            encoding="utf-8",
+            decode_responses=True
+        )
+        
+        await FastAPILimiter.init(redis_connection)
+        
+        print(f"✅ Connected to Redis at {REDIS_URL}")
+    except Exception as e:
+        print(f"❌ Failed to connect to Redis: {e}")
+        print("\n💡 Make sure Redis is running:")
+        print("   Local: docker-compose up -d")
+        print("   Or: redis-server")
+        raise
+
+# Closes Redis connection when server stops.
+@app.on_event("shutdown")
+async def shutdown():
+    await FastAPILimiter.close()
+
 @app.get("/")
-# @limiter.limit("5/minute")  
-async def get_root(request: Request):
+async def get_root(request: Request, rate_limiter: RateLimiter = Depends(RateLimiter(times=5, seconds=60))):
     return {"message": "Main Page!"}
 
 # Kubernetes health check endpoint.
@@ -58,7 +72,16 @@ async def get_user():
 
 # Test strip payment endpoint.
 @app.get("/secure")
-async def get_secure_data(token: HTTPAuthorizationCredentials = Depends(token_scheme)):
+async def get_secure_data(
+    token: HTTPAuthorizationCredentials = Depends(token_scheme),
+    # Add rate limiting: 10 requests per 60 seconds
+    rate_limiter: RateLimiter = Depends(RateLimiter(times=10, seconds=60))
+):
+    """
+    Secure endpoint with authentication AND rate limiting.
+    - Requires valid token (authentication)
+    - Limits to 10 requests per minute (rate limiting)
+    """
     return {
         "message": "This is secure data!",
         "your_token_was": token.credentials
