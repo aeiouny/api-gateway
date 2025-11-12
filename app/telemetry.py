@@ -13,14 +13,10 @@ metrics_reader = None
 def setup_telemetry(app):
     global metrics_reader
     
-    service_name = "api-gateway"
-    service_version = os.getenv("SERVICE_VERSION", "1.0.0")
-    environment = os.getenv("ENVIRONMENT", "development")
-    
     service_info = Resource.create({
-        "service.name": service_name,
-        "service.version": service_version,
-        "deployment.environment": environment
+        "service.name": "api-gateway",
+        "service.version": os.getenv("SERVICE_VERSION", "1.0.0"),
+        "deployment.environment": os.getenv("ENVIRONMENT", "development")
     })
 
     tracer = TracerProvider(resource=service_info)
@@ -35,7 +31,6 @@ def setup_telemetry(app):
     set_meter_provider(meter)
 
     FastAPIInstrumentor.instrument_app(app)
-    
     print("OpenTelemetry initialized")
 
 def get_metrics():
