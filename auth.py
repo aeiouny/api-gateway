@@ -7,69 +7,60 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from dotenv import load_dotenv
 
 load_dotenv()
-AUTH0_DOMAIN = os.getenv("AUTH0_DOMAIN")
-AUTH0_AUDIENCE = os.getenv("AUTH0_AUDIENCE")
-ALGORITHMS = ["RS256"]
-JWKS_URL = f'https://{AUTH0_DOMAIN}/.well-known/jwks.json'
-AUTH0_ISSUER = f'https://{AUTH0_DOMAIN}/'
 
-PUBLIC_KEYS = None
-token_scheme = HTTPBearer()
+auth0_domain = os.getenv("AUTH0_DOMAIN")
+auth0_audience = os.getenv("AUTH0_AUDIENCE")
+algorithm = "RS256"
+jwks_url = f'https://{auth0_domain}/.well-known/jwks.json'
+auth0_issuer = f'https://{auth0_domain}/'
+
+cached_keys = None
+bearer = HTTPBearer()
 
 async def get_public_keys():
-    global PUBLIC_KEYS
-    if PUBLIC_KEYS is None:
+    global cached_keys
+    if cached_keys is None:
         try:
             async with httpx.AsyncClient() as client:
-                response = await client.get(JWKS_URL)
+                response = await client.get(jwks_url)
                 response.raise_for_status()
-                jwks = response.json()
+                data = response.json()
             
-            PUBLIC_KEYS = {key['kid']: key for key in jwks['keys']}
-        except Exception as e:
+            cached_keys = {}
+            for key in data['keys']:
+                cached_keys[key['kid']] = key
+        except Exception:
             raise RuntimeError("Auth0 key fetching failed.")
-    return PUBLIC_KEYS
+    return cached_keys
 
-
-async def validate_token(token: HTTPAuthorizationCredentials = Depends(token_scheme)):
+async def validate_token(token: HTTPAuthorizationCredentials = Depends(bearer)):
     try:
-        unverified_header = jwt.get_unverified_header(token.credentials)
-        kid = unverified_header.get('kid')
+        token_string = token.credentials
+        header = jwt.get_unverified_header(token_string)
+        kid = header.get('kid')
 
         if kid is None:
-            raise HTTPException(
-                status_code=401, 
-                detail="Invalid token: Key ID (kid) missing."
-            )
+            raise HTTPException(status_code=401, detail="Invalid token: Key ID missing.")
         
-        public_keys = await get_public_keys()
-        jwks_key = public_keys.get(kid)
+        keys = await get_public_keys()
+        matching_key = keys.get(kid)
 
-        if jwks_key is None:
-            raise HTTPException(
-                status_code=401, 
-                detail="Invalid token: Key ID not recognized."
-            )
+        if matching_key is None:
+            raise HTTPException(status_code=401, detail="Invalid token: Key ID not found.")
 
-        rsa_key = jwk.construct(jwks_key)
+        public_key = jwk.construct(matching_key)
 
         payload = jwt.decode(
-            token.credentials,
-            rsa_key,
-            algorithms=ALGORITHMS,
-            audience=AUTH0_AUDIENCE,
-            issuer=AUTH0_ISSUER
+            token_string,
+            public_key,
+            algorithms=[algorithm],
+            audience=auth0_audience,
+            issuer=auth0_issuer
         )
         
         return payload
 
-    except JWTError as e:
-        raise HTTPException(
-            status_code=401, 
-            detail=f"Unauthorized: Invalid or expired token"
-        )
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Unauthorized: Invalid or expired token")
     except Exception as e:
-        raise HTTPException(
-            status_code=500, 
-            detail=f"Authentication server error: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Authentication error: {str(e)}")
