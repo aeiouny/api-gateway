@@ -2,12 +2,12 @@ from fastapi import FastAPI, Request, Depends
 from fastapi.responses import JSONResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.util import get_remote_address
-from slowapi.errors import RateLimitExceeded
-from telemetry import setup_telemetry
+# from slowapi import Limiter, _rate_limit_exceeded_handler
+# from slowapi.util import get_remote_address
+# from slowapi.errors import RateLimitExceeded
+# from telemetry import setup_telemetry
 
-limiter = Limiter(key_func=get_remote_address)
+# limiter = Limiter(key_func=get_remote_address)
 
 
 app = FastAPI(
@@ -16,24 +16,47 @@ app = FastAPI(
 )
 
 
-setup_telemetry(app)
+# setup_telemetry(app)
 
 
-app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+# app.state.limiter = limiter
+# app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 token_scheme = HTTPBearer()
 
 @app.get("/")
-@limiter.limit("5/minute")  
+# @limiter.limit("5/minute")  
 async def get_root(request: Request):
     return {"message": "Main Page!"}
 
-
+# Kubernetes health check endpoint.
 @app.get("/health")
 async def get_health(request: Request):
+    """
+    Kubernetes.
+    """
     return {"status": "ok", "message": "Gateway is running"}
 
+# Showcase metrics endpoint.
+@app.get("/metrics")
+async def get_metrics():
+    """
+    Prometheus / OpenTelemetry.
+    """
+    return {"metrics": "metrics"}
+
+# Test auth0 endpoint.
+@app.get("/api/v1/me")
+async def get_user():
+    """
+    Auth0-protected endpoint.
+    """
+    return {
+        "message": "This is Auth0-protected endpoint.",
+        "users": "test user"
+    }
+
+# Test strip payment endpoint.
 @app.get("/secure")
 async def get_secure_data(token: HTTPAuthorizationCredentials = Depends(token_scheme)):
     return {
