@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-gateway-deployment
+  labels:
+    app: api-gateway
+spec:
+  replicas: 1 
+  selector:
+    matchLabels:
+      app: api-gateway
+  template:
+    metadata:
+      labels:
+        app: api-gateway
+    spec:
+      containers:
+      - name: api-gateway
+        image: api-gateway-project:latest 
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 8000
+        env:
+        - name: STRIPE_SECRET_KEY
+          value: "stripe test key place holder" 
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-gateway-service
+spec:
+  type: LoadBalancer 
+  selector:
+    app: api-gateway
+  ports:
+  - port: 80
+    targetPort: 8000

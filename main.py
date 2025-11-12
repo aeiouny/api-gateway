@@ -1,45 +1,42 @@
-import os
-import redis.asyncio as aioredis
-from fastapi import FastAPI, Depends, Body
+from fastapi import FastAPI, Request, Depends
+from fastapi.responses import JSONResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from fastapi_limiter import FastAPILimiter
-from fastapi_limiter.depends import RateLimiter
-from auth import create_token, validate_token
+
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+from telemetry import setup_telemetry
+
+limiter = Limiter(key_func=get_remote_address)
+
 
 app = FastAPI(
     title="API Gateway",
+    description="API gateway."
 )
 
-@app.on_event("startup")
-async def startup():
-    r = aioredis.from_url(os.getenv("REDIS_URL", "redis://localhost:6379"),
-                          encoding="utf-8", decode_responses=True)
-    await FastAPILimiter.init(r)
 
-@app.get("/dev/token")
-def get_dev_token():
-    return {"token": create_token("user123")}
+setup_telemetry(app)
+
+
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+token_scheme = HTTPBearer()
 
 @app.get("/")
-def get_root():
-    return {"message": "API Gateway is running"}
+@limiter.limit("5/minute")  
+async def get_root(request: Request):
+    return {"message": "Main Page!"}
+
 
 @app.get("/health")
-def get_health():
-    return {"status": "ok"}
+async def get_health(request: Request):
+    return {"status": "ok", "message": "Gateway is running"}
 
-@app.get("/auth/check")
-def secure(payload: dict = Depends(validate_token)):
-    return {"valid": True, "user": payload["sub"]}
-
-@app.get("/secure", dependencies=[Depends(validate_token), Depends(RateLimiter(times=60, seconds=60))])
-def secure():
-    return {"message": "This is a secure message"}
-
-@app.get("/users/profile", dependencies=[Depends(validate_token), Depends(RateLimiter(times=100, seconds=60))])
-def users_profile(payload: dict = Depends(validate_token)):
-    return {"user": payload["sub"], "profile": {"name": "Demo User"}}
-
-@app.post("/payments/charge", dependencies=[Depends(RateLimiter(times=20, seconds=60))])
-def payments_charge():
-    return { "amount": 1000, "currency": "USD"}
+@app.get("/secure")
+async def get_secure_data(token: HTTPAuthorizationCredentials = Depends(token_scheme)):
+    return {
+        "message": "This is secure data!",
+        "your_token_was": token.credentials
+    }
