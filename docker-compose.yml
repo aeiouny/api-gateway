@@ -1,7 +1,6 @@
 version: '3.8'
 
 services:
-  # Redis
   redis:
     image: redis:7-alpine
     ports:
@@ -13,7 +12,6 @@ services:
       timeout: 3s
       retries: 5
 
-  # FastAPI
   api-gateway:
     build: .
     ports:
